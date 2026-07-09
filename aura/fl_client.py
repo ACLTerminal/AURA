@@ -619,10 +619,13 @@ class AURAFlowerClient(fl.client.Client):
                 )
 
             # Unwrap DP-wrapped AttackHead
-            if self.dp_enabled and hasattr(head, '_module'):
-                self.model.attack_head = head._module
-            elif self.dp_enabled:
-                self.model.attack_head = head
+            if self.dp_enabled:
+                if hasattr(head, 'remove_hooks'):
+                    head.remove_hooks()
+                if hasattr(head, '_module'):
+                    self.model.attack_head = head._module
+                else:
+                    self.model.attack_head = head
         else:
             logger.debug(
                 f"  [{self.client_id}] No high-MSE flows "
@@ -631,11 +634,13 @@ class AURAFlowerClient(fl.client.Client):
 
         # Unwrap the DP-wrapped model back to the original autoencoder
         # so that model_to_ndarrays() extracts clean parameter tensors.
-        if self.dp_enabled and hasattr(ae, '_module'):
-            self.model.autoencoder = ae._module
-        elif self.dp_enabled:
-            # Opacus >= 1.4 wraps as GradSampleModule
-            self.model.autoencoder = ae
+        if self.dp_enabled:
+            if hasattr(ae, 'remove_hooks'):
+                ae.remove_hooks()
+            if hasattr(ae, '_module'):
+                self.model.autoencoder = ae._module
+            else:
+                self.model.autoencoder = ae
 
         return len(self.train_data), last_loss
 
