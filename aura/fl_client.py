@@ -619,28 +619,29 @@ class AURAFlowerClient(fl.client.Client):
                 )
 
             # Unwrap DP-wrapped AttackHead
-            if self.dp_enabled:
-                if hasattr(head, 'remove_hooks'):
-                    head.remove_hooks()
-                if hasattr(head, '_module'):
-                    self.model.attack_head = head._module
-                else:
-                    self.model.attack_head = head
+            if self.dp_enabled and hasattr(head, 'remove_hooks'):
+                head.remove_hooks()
+                self.model.attack_head = head._module
+            elif self.dp_enabled and hasattr(head, '_module'):
+                self.model.attack_head = head._module
+            elif self.dp_enabled:
+                self.model.attack_head = head
         else:
             logger.debug(
                 f"  [{self.client_id}] No high-MSE flows "
                 f"(threshold={mse_split:.4f}) \u2014 AttackHead training skipped"
             )
 
-        # Unwrap the DP-wrapped model back to the original autoencoder
-        # so that model_to_ndarrays() extracts clean parameter tensors.
-        if self.dp_enabled:
-            if hasattr(ae, 'remove_hooks'):
-                ae.remove_hooks()
-            if hasattr(ae, '_module'):
-                self.model.autoencoder = ae._module
-            else:
-                self.model.autoencoder = ae
+        # Unwrap the DP-wrapped model back to the original autoencoder.
+        # IMPORTANT: remove_hooks() first — reassigning ae._module alone does
+        # NOT strip the forward/backward hooks Opacus attached in-place to
+        # the underlying layers. Without this, next round's make_private()
+        # on the same module raises "Trying to add hooks twice to the same model".
+        if self.dp_enabled and hasattr(ae, 'remove_hooks'):
+            ae.remove_hooks()
+            self.model.autoencoder = ae._module
+        elif self.dp_enabled:
+            self.model.autoencoder = ae
 
         return len(self.train_data), last_loss
 

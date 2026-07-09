@@ -518,8 +518,19 @@ _ae_thresh_high, _ae_thresh_medium, AE_THRESHOLDS_CALIBRATED = load_ae_threshold
 
 MSE_THRESHOLD_HIGH   = _ae_thresh_high    # EMA-UCL P99 of benign MSE distribution
 MSE_THRESHOLD_MEDIUM = _ae_thresh_medium  # EMA-UCL P90 of benign MSE distribution
+_SENTINEL_CH2_SPLIT_THRESHOLD = 0.035  # Midpoint sentinel (P75 proxy) — NOT research-valid
+
+
 def load_ch2_split_threshold() -> float:
     if not _CALIB_JSON_PATH.exists():
+        import sys
+        if any("calibrate_thresholds" in arg for arg in sys.argv) or any("train" in arg for arg in sys.argv):
+            _cfg_log.warning(
+                "[CONFIG] calibration_results.json missing — using sentinel "
+                "CH2_MSE_SPLIT_THRESHOLD=0.03 to allow bootstrap. Run "
+                "calibrate_thresholds.py afterward for a research-valid value."
+            )
+            return 0.03
         raise FileNotFoundError(
             f"Threshold calibration file missing: {_CALIB_JSON_PATH}. "
             "Run calibrate_thresholds.py before starting the system."
